@@ -12,7 +12,7 @@ export const useObras = () => {
       try {
         setLoading(true);
         const res = await obrasAPI.getAll();
-        setObras(res.data);
+        setObras(Array.isArray(res.data) ? res.data : []); // defensivo leve
       } catch (e) {
         console.error(e);
         setError('Error cargando obras');
@@ -35,7 +35,7 @@ export const useObrasConUbicacion = () => {
       try {
         setLoading(true);
         const res = await obrasAPI.getWithLocation();
-        setObras(res.data);
+        setObras(Array.isArray(res.data) ? res.data : []); // defensivo leve
       } catch (e) {
         console.error(e);
         setError('Error cargando obras');
