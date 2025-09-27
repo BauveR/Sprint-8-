@@ -13,9 +13,13 @@ export const obrasAPI = {
   getById: (id: number) => api.get<ObraArte>(`/obras/${id}`),
   getWithLocation: () => api.get<ObraArte[]>('/obras/ubicacion'),
   create: (obra: ObraCreate) => api.post<ObraArte>('/obras', obra),
-
-  // NUEVOS
   delete: (id: number) => api.delete<{ ok: boolean; id: number }>(`/obras/${id}`),
+
+  // NUEVO: obra completa (obra + tiendas + expos)
+  getCompleta: (id: number) =>
+    api.get<{ obra: ObraArte; tiendas: any[]; exposiciones: any[] }>(`/obras/${id}/completa`),
+
+  // (estos ya los tenías si usas relaciones)
   getRelations: (id: number) => api.get(`/obras/${id}/relaciones`),
   linkStore: (id: number, payload: { id_tienda: number; stock?: number; precio_venta?: number; codigo_inventario?: string }) =>
     api.post(`/obras/${id}/vincular/tienda`, payload),

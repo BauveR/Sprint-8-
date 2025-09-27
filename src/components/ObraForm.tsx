@@ -16,7 +16,10 @@ export default function ObraForm({ onCreated }: { onCreated: () => void }) {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setForm((f) => ({ ...f, [name]: name === 'precio_salida' || name === 'anio' ? Number(value) : value }));
+    setForm((f) => ({
+      ...f,
+      [name]: ['precio_salida', 'anio', 'lat', 'lng'].includes(name) ? Number(value) : value
+    }) as any);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -60,7 +63,9 @@ export default function ObraForm({ onCreated }: { onCreated: () => void }) {
           <option value="en_tienda">En tienda</option>
         </select>
         <input name="precio_salida" type="number" step="0.01" value={form.precio_salida} onChange={handleChange} placeholder="Precio salida" className="border rounded px-3 py-2" required />
-        <input name="ubicacion" value={form.ubicacion ?? ''} onChange={handleChange} placeholder="Ubicación (opcional)" className="border rounded px-3 py-2" />
+        <input name="ubicacion" value={form.ubicacion ?? ''} onChange={handleChange} placeholder="Ubicación (texto)" className="border rounded px-3 py-2" />
+        <input name="lat" type="number" step="any" value={form.lat ?? ''} onChange={handleChange} placeholder="Latitud (opcional)" className="border rounded px-3 py-2" />
+        <input name="lng" type="number" step="any" value={form.lng ?? ''} onChange={handleChange} placeholder="Longitud (opcional)" className="border rounded px-3 py-2" />
       </div>
       <textarea name="descripcion" value={form.descripcion ?? ''} onChange={handleChange} placeholder="Descripción" className="border rounded px-3 py-2 w-full" />
       <button disabled={saving} className="px-4 py-2 rounded-xl shadow bg-black text-white disabled:opacity-60">

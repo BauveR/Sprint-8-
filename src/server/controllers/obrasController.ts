@@ -1,14 +1,16 @@
 import type { Request, Response } from 'express';
 import { pool } from '../config/database';
-// No usas ObraArte en este archivo, solo el DTO de entrada:
 import type { ObraArteCreate } from '../models/ObraArte';
 
-export const getObras = async (_req: Request, res: Response) => {  // _req para evitar TS6133
+/* ============ LISTADOS BÁSICOS ============ */
+
+export const getObras = async (_req: Request, res: Response) => {
   try {
     const result = await pool.query(`
       SELECT 
         id_obra, autor, titulo, año AS anio, medidas, tecnica, disponibilidad,
-        precio_salida, ubicacion, tipo, links, descripcion, created_at, updated_at
+        precio_salida, ubicacion, tipo, links, descripcion, created_at, updated_at,
+        lat, lng
       FROM obras_arte 
       ORDER BY created_at DESC
     `);
@@ -24,7 +26,8 @@ export const getObraById = async (req: Request, res: Response) => {
     const result = await pool.query(`
       SELECT 
         id_obra, autor, titulo, año AS anio, medidas, tecnica, disponibilidad,
-        precio_salida, ubicacion, tipo, links, descripcion, created_at, updated_at
+        precio_salida, ubicacion, tipo, links, descripcion, created_at, updated_at,
+        lat, lng
       FROM obras_arte
       WHERE id_obra = $1
     `, [id]);
@@ -36,38 +39,13 @@ export const getObraById = async (req: Request, res: Response) => {
   }
 };
 
-export const createObra = async (req: Request, res: Response) => {
-  try {
-    const body: any = req.body as ObraArteCreate;
-    // Acepta anio o año desde el front
-    const anio = body.anio ?? body.año;
-
-    const result = await pool.query(`
-      INSERT INTO obras_arte 
-      (autor, titulo, año, medidas, tecnica, disponibilidad, precio_salida, ubicacion, tipo, links, descripcion)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-      RETURNING 
-        id_obra, autor, titulo, año AS anio, medidas, tecnica, disponibilidad,
-        precio_salida, ubicacion, tipo, links, descripcion, created_at, updated_at
-    `, [
-      body.autor, body.titulo, anio, body.medidas,
-      body.tecnica, body.disponibilidad ?? 'disponible',
-      body.precio_salida, body.ubicacion, body.tipo ?? 'pintura',
-      JSON.stringify(body.links ?? {}), body.descripcion
-    ]);
-
-    res.status(201).json(result.rows[0]);
-  } catch {
-    res.status(500).json({ error: 'Error creando obra' });
-  }
-};
-
 export const getObrasConUbicacion = async (_req: Request, res: Response) => {
   try {
     const result = await pool.query(`
       SELECT 
         o.id_obra, o.autor, o.titulo, o.año AS anio, o.medidas, o.tecnica, o.disponibilidad,
         o.precio_salida, o.ubicacion, o.tipo, o.links, o.descripcion, o.created_at, o.updated_at,
+        o.lat, o.lng,
         COALESCE(
           (SELECT t.nombre FROM obras_tiendas ot 
            JOIN tiendas t ON ot.id_tienda = t.id_tienda 
@@ -87,9 +65,35 @@ export const getObrasConUbicacion = async (_req: Request, res: Response) => {
   }
 };
 
-/* =========================
-   NUEVO: borrar y relaciones
-   ========================= */
+/* ============ CREAR / BORRAR ============ */
+
+export const createObra = async (req: Request, res: Response) => {
+  try {
+    const body = req.body as ObraArteCreate & { anio?: number; lat?: number | null; lng?: number | null };
+    const anio = (body as any).anio ?? (body as any).año;
+
+    const result = await pool.query(`
+      INSERT INTO obras_arte 
+      (autor, titulo, año, medidas, tecnica, disponibilidad, precio_salida, ubicacion, tipo, links, descripcion, lat, lng)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      RETURNING 
+        id_obra, autor, titulo, año AS anio, medidas, tecnica, disponibilidad,
+        precio_salida, ubicacion, tipo, links, descripcion, created_at, updated_at,
+        lat, lng
+    `, [
+      body.autor, body.titulo, anio, body.medidas,
+      body.tecnica, (body as any).disponibilidad ?? 'disponible',
+      body.precio_salida, body.ubicacion, (body as any).tipo ?? 'pintura',
+      JSON.stringify(body.links ?? {}), body.descripcion,
+      body.lat ?? null, body.lng ?? null
+    ]);
+
+    res.status(201).json(result.rows[0]);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Error creando obra' });
+  }
+};
 
 export const deleteObra = async (req: Request, res: Response) => {
   try {
@@ -105,19 +109,22 @@ export const deleteObra = async (req: Request, res: Response) => {
   }
 };
 
+/* ============ RELACIONES ============ */
+
 export const getRelaciones = async (req: Request, res: Response) => {
   try {
     const { id } = req.params; // id_obra
     const [tiendas, expos] = await Promise.all([
       pool.query(`
-        SELECT ot.id_relacion, t.id_tienda, t.nombre, ot.stock, ot.precio_venta, ot.codigo_inventario, ot.fecha_ingreso
+        SELECT ot.id_relacion, t.id_tienda, t.nombre, t.tipo_tienda, t.direccion, ot.stock, ot.precio_venta, ot.codigo_inventario, ot.fecha_ingreso
         FROM obras_tiendas ot
         JOIN tiendas t ON t.id_tienda = ot.id_tienda
         WHERE ot.id_obra = $1
         ORDER BY t.nombre
       `, [id]),
       pool.query(`
-        SELECT oe.id_relacion, e.id_exposicion, e.titulo, e.lugar, e.fecha_inicio, e.fecha_fin, oe.fecha_incorporacion, oe.ubicacion_en_exposicion
+        SELECT oe.id_relacion, e.id_exposicion, e.titulo, e.lugar, e.fecha_inicio, e.fecha_fin, e.descripcion,
+               oe.fecha_incorporacion, oe.ubicacion_en_exposicion
         FROM obras_exposiciones oe
         JOIN exposiciones e ON e.id_exposicion = oe.id_exposicion
         WHERE oe.id_obra = $1
@@ -191,5 +198,62 @@ export const desvincularExposicion = async (req: Request, res: Response) => {
     res.json({ ok: true, deleted: r.rowCount });
   } catch {
     res.status(500).json({ error: 'Error desvinculando exposición' });
+  }
+};
+
+/* ============ OBRA COMPLETA ============ */
+
+export const getObraCompleta = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const obraQ = pool.query(`
+      SELECT 
+        id_obra, autor, titulo, año AS anio, medidas, tecnica, disponibilidad,
+        precio_salida, ubicacion, tipo, links, descripcion, created_at, updated_at,
+        lat, lng,
+        COALESCE(
+          (SELECT t.nombre FROM obras_tiendas ot 
+           JOIN tiendas t ON ot.id_tienda = t.id_tienda 
+           WHERE ot.id_obra = o.id_obra AND ot.stock > 0 LIMIT 1),
+          (SELECT e.titulo FROM obras_exposiciones oe 
+           JOIN exposiciones e ON oe.id_exposicion = e.id_exposicion
+           WHERE oe.id_obra = o.id_obra 
+           AND CURRENT_DATE BETWEEN e.fecha_inicio AND e.fecha_fin LIMIT 1),
+          o.ubicacion
+        ) AS ubicacion_actual
+      FROM obras_arte o
+      WHERE id_obra = $1
+    `, [id]);
+
+    const tiendasQ = pool.query(`
+      SELECT ot.id_relacion, t.id_tienda, t.nombre, t.tipo_tienda, t.direccion, ot.stock, ot.precio_venta, ot.codigo_inventario, ot.fecha_ingreso
+      FROM obras_tiendas ot
+      JOIN tiendas t ON t.id_tienda = ot.id_tienda
+      WHERE ot.id_obra = $1
+      ORDER BY t.nombre
+    `, [id]);
+
+    const exposQ = pool.query(`
+      SELECT oe.id_relacion, e.id_exposicion, e.titulo, e.lugar, e.fecha_inicio, e.fecha_fin, e.descripcion,
+             oe.fecha_incorporacion, oe.ubicacion_en_exposicion
+      FROM obras_exposiciones oe
+      JOIN exposiciones e ON e.id_exposicion = oe.id_exposicion
+      WHERE oe.id_obra = $1
+      ORDER BY e.fecha_inicio DESC
+    `, [id]);
+
+    const [obraR, tiendasR, exposR] = await Promise.all([obraQ, tiendasQ, exposQ]);
+
+    if (!obraR.rows.length) return res.status(404).json({ error: 'Obra no encontrada' });
+
+    res.json({
+      obra: obraR.rows[0],
+      tiendas: tiendasR.rows,
+      exposiciones: exposR.rows
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Error obteniendo obra completa' });
   }
 };

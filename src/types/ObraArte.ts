@@ -25,7 +25,7 @@ export interface ObraArte {
   medidas: string;
   tecnica: string;
   disponibilidad: Disponibilidad;
-  precio_salida: number;
+  precio_salida: number | string;   // pg numeric puede venir string
   ubicacion: string;
   tipo: TipoObra;
   links: Record<string, string>;
@@ -33,6 +33,8 @@ export interface ObraArte {
   created_at: string;
   updated_at: string;
   ubicacion_actual?: string;
+  lat?: number | null;              // NUEVO
+  lng?: number | null;              // NUEVO
 }
 
 export interface Tienda {
@@ -58,4 +60,6 @@ export interface ObraCreate {
   tipo?: TipoObra;
   links?: Record<string, string>;
   descripcion?: string;
+  lat?: number | null;      // NUEVO
+  lng?: number | null;      // NUEVO
 }
