@@ -1,9 +1,10 @@
-import express from 'express';
+import express, { Request, Response } from 'express';  // ⬅️ default + tipos
 import cors from 'cors';
-import dotenv from 'dotenv';
+import * as dotenv from 'dotenv';
 import { testConnection } from './config/database';
 import obrasRoutes from './routes/obrasRoutes';
 import tiendasRoutes from './routes/tiendaRoutes';
+import geoRoutes from './routes/geoRoutes'; // si usas geocoding
 
 dotenv.config();
 
@@ -15,8 +16,9 @@ app.use(express.json());
 
 app.use('/api/obras', obrasRoutes);
 app.use('/api/tiendas', tiendasRoutes);
+app.use('/api/geo', geoRoutes); // si lo tienes
 
-app.get('/api/health', (_req, res) => {  // _req para evitar TS6133
+app.get('/api/health', (_req: Request, res: Response) => {   // ⬅️ tipado explícito
   res.json({ status: 'OK', message: 'API Galería de Arte funcionando' });
 });
 

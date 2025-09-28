@@ -35,3 +35,11 @@ export const tiendasAPI = {
   getAll: () => api.get<Tienda[]>('/tiendas'),
   getOnline: () => api.get<Tienda[]>('/tiendas/online'),
 };
+
+export const geoAPI = {
+  geocode: (address: string) =>
+    api.get<{ lat: number; lng: number; display_name: string; raw: any }>(
+      '/geo/geocode',
+      { params: { address } }
+    ),
+};

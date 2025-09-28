@@ -1,15 +1,20 @@
+// src/components/ObraDetail.tsx
 import { useEffect, useRef, useState } from 'react';
 import { obrasAPI } from '../services/api';
 import type { ObraArte } from '../types/ObraArte';
-import L from 'leaflet';
+import * as L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { fixLeafletIcons } from './leafletIconFix';
 
 export default function ObraDetail({ id }: { id: number }) {
   const [data, setData] = useState<{ obra: ObraArte; tiendas: any[]; exposiciones: any[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const mapRef = useRef<HTMLDivElement | null>(null);
-  const mapInstance = useRef<L.Map | null>(null);
 
+  const mapDivRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<ReturnType<typeof L.map> | null>(null);
+  const markerRef = useRef<ReturnType<typeof L.marker> | null>(null);
+
+  // 1) Cargar datos
   useEffect(() => {
     (async () => {
       try {
@@ -23,20 +28,48 @@ export default function ObraDetail({ id }: { id: number }) {
     })();
   }, [id]);
 
+  // 2) Inicializar mapa UNA vez cuando haya coords
   useEffect(() => {
-    if (!data?.obra || !mapRef.current) return;
-    const { lat, lng } = data.obra;
-    if (lat == null || lng == null) return;
-    if (!mapInstance.current) {
-      mapInstance.current = L.map(mapRef.current).setView([lat, lng], 14);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap'
-      }).addTo(mapInstance.current);
-      L.marker([lat, lng]).addTo(mapInstance.current);
+    const obra = data?.obra;
+    if (!obra || obra.lat == null || obra.lng == null) return;
+    if (!mapDivRef.current) return;
+
+    // si ya existe, no lo recrees
+    if (mapRef.current) return;
+
+    fixLeafletIcons();
+
+    const map = L.map(mapDivRef.current).setView([obra.lat, obra.lng], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    const marker = L.marker([obra.lat, obra.lng]).addTo(map);
+
+    mapRef.current = map;
+    markerRef.current = marker;
+
+    // cleanup al desmontar el componente
+    return () => {
+      map.remove();
+      mapRef.current = null;
+      markerRef.current = null;
+    };
+  }, [data?.obra?.lat, data?.obra?.lng]);
+
+  // 3) Si cambian coords, mueve vista/marker sin recrear
+  useEffect(() => {
+    const obra = data?.obra;
+    if (!obra || obra.lat == null || obra.lng == null) return;
+    if (!mapRef.current) return;
+
+    mapRef.current.setView([obra.lat, obra.lng], mapRef.current.getZoom());
+    if (markerRef.current) {
+      markerRef.current.setLatLng([obra.lat, obra.lng]);
     } else {
-      mapInstance.current.setView([lat, lng], 14);
+      markerRef.current = L.marker([obra.lat, obra.lng]).addTo(mapRef.current);
     }
-  }, [data]);
+  }, [data?.obra?.lat, data?.obra?.lng]);
 
   if (error) return <div className="p-4 text-red-600">{error}</div>;
   if (!data) return <div className="p-4 text-gray-500">Cargando…</div>;
@@ -55,7 +88,7 @@ export default function ObraDetail({ id }: { id: number }) {
 
       {(obra.lat != null && obra.lng != null) && (
         <div className="rounded-xl overflow-hidden shadow">
-          <div ref={mapRef} style={{ height: 300, width: '100%' }} />
+          <div ref={mapDivRef} style={{ height: 300, width: '100%' }} />
         </div>
       )}
 

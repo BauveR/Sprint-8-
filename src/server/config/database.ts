@@ -1,6 +1,5 @@
 import { Pool } from 'pg';
-import dotenv from 'dotenv';
-
+import * as dotenv from 'dotenv';    // ⬅️ así con esModuleInterop true
 dotenv.config();
 
 export const pool = new Pool({
@@ -11,7 +10,6 @@ export const pool = new Pool({
   port: parseInt(process.env.DB_PORT || '5432'),
 });
 
-// Verificar conexión
 export const testConnection = async () => {
   try {
     const client = await pool.connect();
